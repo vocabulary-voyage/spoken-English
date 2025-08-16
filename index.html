@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spoken English Game</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f5f7fa; }
+    header { background-color: #0077b6; color: white; text-align: center; padding: 1em 0; }
+    nav { display: none; justify-content: center; background: #023e8a; }
+    nav button { padding: 1em; border: none; background: transparent; color: white; cursor: pointer; font-weight: bold; }
+    nav button:hover { background: #0077b6; }
+    .page { display: none; padding: 2em; }
+    .active { display: block; }
+    .day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1em; margin-top: 2em; }
+    .day-button { padding: 1.5em; border: none; border-radius: 10px; background: #90e0ef; cursor: pointer; font-weight: bold; }
+    .day-button.locked { background: #ccc; cursor: not-allowed; }
+    .question-box { margin: 1em 0; padding: 1em; background: #e0f7fa; border-left: 4px solid #0077b6; }
+    .question-box label { display: block; margin: 0.5em 0; }
+    button { margin-top: 10px; padding: 10px 20px; background-color: #0077b6; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background-color: #023e8a; }
+    .award { background: #fff4c2; border: 2px solid #ffd700; border-radius: 8px; padding: 1em; margin: 1em 0; }
+    .login-container, .signup-container { padding: 2em; max-width: 400px; margin: auto; }
+    .hidden { display: none; }
+    #certificateCanvas { margin-top: 20px; border: 2px solid #ccc; padding: 20px; background: white; width: fit-content; }
+  </style>
+</head>
+<body>
+<header><h1>Spoken English Game</h1><p>30 Days to Boost Your Spoken English Skills!</p></header>
+<nav id="mainNav">
+  <button onclick="showPage('home')">Home</button>
+  <button onclick="showPage('days')">30 Days</button>
+  <button id="assessmentBtn" onclick="tryShowAssessment()">Final Assessment</button>
+  <button onclick="showPage('awards')">Awards & Certificate</button>
+  <button onclick="logout()">Logout</button>
+</nav>
+<div id="login" class="page active login-container">
+  <h2>Login</h2>
+  <input id="loginEmail" type="text" placeholder="Email"/><br/>
+  <input id="loginPassword" type="password" placeholder="Password"/><br/>
+  <button onclick="login()">Login</button>
+  <p>Don't have an account? <a href="#" onclick="switchToSignup()">Sign up here</a></p>
+</div>
+<div id="signup" class="page signup-container">
+  <h2>Sign Up</h2>
+  <input id="signupEmail" type="text" placeholder="Email"/><br/>
+  <input id="signupPassword" type="password" placeholder="Password"/><br/>
+  <button onclick="signup()">Sign Up</button>
+  <p>Already have an account? <a href="#" onclick="switchToLogin()">Login here</a></p>
+</div>
+<div id="home" class="page">
+  <h2>Welcome!</h2>
+  <p>Complete each day's notes and multiple choice questions to unlock the next. Pass the final 15-question test to earn your certificate!</p>
+</div>
+<div id="days" class="page">
+  <h2>Daily Practice</h2>
+  <div class="day-grid" id="dayButtons"></div>
+  <div id="dayContent"></div>
+</div>
+<div id="assessment" class="page">
+  <h2>Final Assessment</h2>
+  <form id="finalAssessmentForm"></form>
+  <button onclick="submitFinalAssessment()">Submit Assessment</button>
+  <div id="assessmentResult"></div>
+</div>
+<div id="awards" class="page">
+  <h2>Your Awards</h2>
+  <div id="awardList"></div>
+  <div id="certificateSection"></div>
+</div>
+<div id="linkContainer"></div>
+<script>
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let currentUser = null;
+const dailyData = {
+   1: {
+    notes: "Day 1 Notes: Introduction and Basic words.",
+    link: "https://youtu.be/O300_mrHooM?si=-p1xApzEBI-lBNfD",
+    questions: [
+      { question: "Which sentence is correct?", options: ["I is a student", "I am a student", "I are a student", "I be a student"], correct: 1 },
+      { question: "'I will be happy' Identify the verb", options: ["I", "happy", "will", "will be"], correct: 3 },
+      { question: "“He ___ a doctor.” Fill in the blank.", options: ["am", "was", "are", "is"], correct: 3 }
+    ]
+  },
+  2: {
+    notes: "Day 2 Notes: To form simple sentence by using simple words.",
+    link: "https://youtu.be/Fo9gzUCoyn0?si=F-Zonza0d_68eEox",
+    questions: [
+      { question: "What is the correct word order?", options: ["Playing he is", "He is playing", " Is he playing", "He playing is"], correct: 1 },
+      { question: "Choose the correct form: 'She ___ to school every day.'", options: ["go", "goes", "going", "gone"], correct: 1 },
+      { question: "Fill in the blank: I ___ my teeth before bed.", options: ["brush", "brushed", "brushes", "brushing"], correct: 0 }
+    ]
+  },
+  3: {
+    notes: "Day 3 Notes: Vowels and Consonants and Pronounciation.",
+    link: "https://youtu.be/G1zBXlsZcKo?si=mPr_KALl3g2HNnNT",
+    questions: [
+      { question: "How many vowels are there in English?", options: ["6", "4", "5", "7"], correct: 2 },
+      { question: " Choose the correct article:'___ orange is on the table.'", options: ["a", "an", "the", "none"], correct: 1 },
+      { question: "Which sentence is correct?", options: ["I saw a elephant.", "I saw an car.", " I saw an elephant. ", " I saw an bus."], correct: 2 }
+    ]
+  },
+  4: {
+    notes: "Day 4 Notes: Have/Has used to frame sentence.",
+    link: "https://youtu.be/ltry98U6jj0?si=3g6N6Sy9zOJpPbO4",
+    questions: [
+      { question: "Choose the correct sentence:", options: [" She have a book.", "He have a car.", "She has a book. ", " He has go."], correct: 2 },
+      { question: "Which subject uses 'have'?", options: ["he", "she", "they", "ram"], correct: 2 },
+      { question: "Fill in the blank: 'I ___ a pen.'", options: ["has", "is", "are", "have"], correct: 3 }
+    ]
+  },
+  5: {
+    notes: "Day 5 Notes: This/That is used to frame Sentence.",
+    link: "https://youtu.be/IFYUX9lcyeI?si=qpzXJfVVKifUtLqt",
+    questions: [
+      { question: " '___ is my book.'(Near & singular)", options: ["that", "these", "this", "those"], correct: 2 },
+      { question: "Choose the correct sentence:", options: ["These are my friends.", "This are my friends.", "Those is my friends.", "That are my friend."], correct: 0 },
+      { question: "'___ are my shoes.' (Far & plural)", options: ["this", "those", "that", "these"], correct: 1 }
+    ]
+  },
+  6: {
+    notes: "Day 6 Notes: Different forms of Noun to make some sentence.",
+    link: "https://youtu.be/fW99cfIpm_k?si=obsRfNVCuEp01ivo",
+    questions: [
+      { question: "What do you say when you meet someone for the first time?", options: ["Bye", "Thanks", "Hello", "Good night"], correct: 2 },
+      { question: "Choose a polite response: 'How are you?'", options: ["Why you ask?", "None of your business", "I'm fine, thank you", "Shut up"], correct: 2 },
+      { question: "Which of the following is a greeting?", options: ["Welcome", "Thanks", "Sorry", "Please"], correct: 0 }
+    ]
+  },
+  7: {
+    notes: "Day 7 Notes: 12 Tenses in English Introduction.",
+    link: "https://youtu.be/uZz4d65QGU4?si=DKvA3e3jsHNwRwC1",
+    questions: [
+      { question: "How many total tenses are there in English?", options: ["6", "12", "8", "14"], correct: 1 },
+      { question: "Choose the correct form: 'She ___ to school every day.'", options: ["go", "goes", "going", "gone"], correct: 1 },
+      { question: "Fill in the blank: I ___ my teeth before bed.", options: ["brush", "brushed", "brushes", "brushing"], correct: 0 }
+    ]
+  },
+  8: {
+    notes: "Day 8 Notes: Simple Present Tense.",
+    link: "https://youtu.be/yC2rbexolwI?si=4OR2OfytXMy_gnAA",
+    questions: [
+      { question: " Which sentence is in the Simple Present Tense?", options: ["I am eating lunch.", "I ate lunch.", "I eat lunch.", " I will eat lunch."], correct: 2 },
+      { question: "Which subject uses 'do' in questions?", options: ["he", "she", "you", "ram"], correct: 2 },
+      { question: "Which is the correct sentence?", options: ["She go to college.", "She goes to college.", "She gone to college.", "She is go college."], correct: 1 }
+    ]
+  },
+  9: {
+    notes: "Day 9 Notes: Simple Past Tense.",
+    link: "https://youtu.be/e2dRr9XsaC4?si=tO5kXk8BLCo5E5lv",
+    questions: [
+      { question: "Which sentence is in the Simple Past Tense?", options: ["I am playing football.", " I play football.", "I played football.", ". I will play football."], correct: 2 },
+      { question: " What is the past form of the verb 'go'?", options: ["going", "goes", "went", "gone"], correct: 2 },
+      { question: " Choose the correct sentence:", options: [" She eat dinner.", " She eats dinner.", " She ate dinner.", "She eating dinner."], correct: 2 }
+    ]
+  },
+  10: {
+    notes: "Day 10 Notes: Explaination of third form of verb(Past Participle).",
+    link: "https://youtu.be/tbq-Twx5RYE?si=X1iF33HmSm7n5TFP",
+    questions: [
+      { question: "What is the past participle of 'eat'?", options: ["ate", "eaten", "eating", "eats"], correct: 1 },
+      { question: "Which sentence is correct (Perfect Tense)?", options: ["I have went to school.", "I had go to school.", "I have gone to school.", "I gone to school."], correct: 2 },
+      { question: "What is the third form of 'write'?", options: ["wrote", "writes", "written", "writing"], correct: 2 }
+    ]
+  },
+  11: {
+    notes: "Day 11 Notes: Simple Future Tense.",
+    link: "https://youtu.be/nYcq7tYBgUg?si=-xoKiQ2vbD6YdgA7",
+    questions: [
+      { question: "Which sentence is in the Simple Future Tense?", options: ["I am going to school.", " I go to school.", " I went to school.", " I will go to school."], correct: 3 },
+      { question: " What is the helping verb used in Simple Future Tense?", options: ["am", "was", "have", "will"], correct: 3 },
+      { question: "Fill in the blank: 'They ___ visit us tomorrow.'", options: ["are", "was", "will", "were"], correct: 2 }
+    ]
+  },
+  12: {
+    notes: "Day 12 Notes: Present Continuous Tense.",
+    link: "https://youtu.be/W-XAxELZq1k?si=9cZV8SY29B8VQxKB",
+    questions: [
+      { question: "Which sentence is incorrect?", options: ["He is working.", "We are studying.", "I am going.", "They is coming."], correct: 3 },
+      { question: " Fill in the blank: 'They ___ playing football.'", options: ["is", "am", "are", "was"], correct: 2 },
+      { question: " Choose the correct sentence:", options: ["She is eat lunch.", "She are eating lunch.", "She is eating lunch.", "She eating lunch."], correct: 2 }
+    ]
+  },
+  13: {
+    notes: "Day 13 Notes: Past Continuous Tense.",
+    link: "https://youtu.be/eVxetWeYdUI?si=_U4-zuWmZpSw9c6Y",
+    questions: [
+      { question: "Choose the correct sentence:", options: ["I was play.", "I is playing.", " I was playing. ", " I had playing."], correct: 2 },
+      { question: "Fill in the blank: 'They ___ watching a movie.'", options: ["is", "were", "was", "are"], correct: 1 },
+      { question: " What is this tense used for?", options: [" Action happening in the past", "Habit", "Future plan", "Just completed"], correct: 0 }
+    ]
+  },
+  14: {
+    notes: "Day 14 Notes: Future Continuous Tense.",
+    link: "https://youtu.be/2H6eNtIL6ns?si=fz7m8EdezjQk6nVN",
+    questions: [
+      { question: "Structure of this tense:", options: ["will + verb", "will + be + verb+ed", " will + be + verb+ing", " will + been + verb"], correct: 2 },
+      { question: "Choose the correct sentence:", options: [" He will be play.", "He is playing.", " He will be playing", "He has been play."], correct: 2 },
+      { question: "What is this tense used for?", options: [" Action that will be happening in future ", "Completed future task", "Past memory", " Present habit"], correct: 0 }
+    ]
+  },
+  15: {
+    notes: "Day 15 Notes: Present Perfect Tense.",
+    link: "https://youtu.be/hXsJc6Hgak0?si=a__OKSKvgAFemao7",
+    questions: [
+      { question: "Choose the correct sentence:", options: [" I has eaten", "I had eaten.", "I have eaten.", " I eating."], correct: 2 },
+      { question: "What is the third form of “write”?", options: ["write", "wrote", "writing", "written"], correct: 3 },
+      { question: "Fill in the blank: 'She ___ finished her work.'", options: ["have", "had", "has", "is"], correct: 2 }
+    ]
+  },
+  16: {
+    notes: "Day 16 Notes: Past Perfect Tense.",
+    link: "https://youtu.be/VxfX25tr2qo?si=TepyepEPy1lUxn1X",
+    questions: [
+      { question: " Choose the correct sentence:", options: ["She has eaten.", "She was eating.", "She had eaten.", " She eat."], correct: 2 },
+      { question: "Which form is used in Past Perfect?", options: ["present", "second form", "third form", "ing form"], correct: 2 },
+      { question: "What is the third form of 'break'?", options: ["broke", "breaking", "broken", "breaks"], correct: 2 }
+    ]
+  },
+  17: {
+    notes: "Day 17 Notes: Future Perffect Tense.",
+    link: "https://youtu.be/LrOniDvhAq8?si=DJp7YeiuwnYauV2u",
+    questions: [
+      { question: " Choose the correct sentence:", options: ["I has finished.", "I have finished.", " I will have finished. ", "I will finish."], correct: 2 },
+      { question: "What is the helping verb used?", options: ["has", "had", "will have", "shall"], correct: 2 },
+      { question: " Fill in the blank: 'He ___ have arrived.'", options: ["has", "had", "will", "is"], correct: 2 }
+    ]
+  },
+  18: {
+    notes: "Day 18 Notes: Present Perfect Continuous Tense.",
+    link: "https://youtu.be/wlrYuUdQz9A?si=8Tm4_4wtw8yAIqMV",
+    questions: [
+      { question: "Choose the correct sentence:", options: ["I has been studying.", "I have been studying", "I studying.", "I am study."], correct: 1 },
+      { question: " What is this tense used for?", options: [" Completed action", "Past story", "Action continuing from past till now", "Habit"], correct: 2 },
+      { question: "What is the correct helping verb for 'He'?", options: ["have", "has", "had", "are"], correct: 1 }
+    ]
+  },
+  19: {
+    notes: "Day 19 Notes: Past Perfect Continuous Tense.",
+    link: "https://youtu.be/aMn9m_YvOLA?si=KL-WwHn5I5TXdJ9v",
+    questions: [
+      { question: "Choose the correct sentence:", options: [" He has been working.", " He had been working. ", " He was work.", "He working."], correct: 1 },
+      { question: " What is this tense used for?", options: ["Future action", "Past simple action", "Ongoing past action before another", " Present habit"], correct: 2 },
+      { question: "Fill in the blank: 'They ___ been sleeping.'", options: ["has", "was", "have", "had"], correct: 3 }
+    ]
+  },
+  20: {
+    notes: "Day 20 Notes: Future Perfect Continuous Tense.",
+    link: "https://youtu.be/2iGvyecWqkw?si=_KxI8orX6okbG31o",
+    questions: [
+      { question: "Choose the correct sentence:", options: ["I will be studying.", " I will have been studying.", "I have been study.", "I will studying."], correct: 1 },
+      { question: "Structure:", options: [" will + be + verb", "will + have been + verb+ing", "will + had + verb", "will + verb+ed"], correct: 1 },
+      { question: "What is this tense used for?", options: ["Finished action", "Long future action before a point in time ", "Past storytelling", "Routine"], correct: 1 }
+    ]
+  },
+  21: {
+    notes: "Day 21 Notes: Preposition of Time (in,on,at) .",
+    link: "https://youtu.be/PaqjCAKhUhc?si=Rgg5CoVlHL3Ov_79",
+    questions: [
+      { question: "We go to school ___ the morning.", options: ["at", "on", "in", "by"], correct: 2 },
+      { question: "The train arrives ___ 7 o’clock.", options: ["at", "on", "in", "by"], correct: 0 },
+      { question: " My birthday is ___ June 5th.", options: ["at", "on", "in", "by"], correct: 1 }
+    ]
+  },
+  22: {
+    notes: "Day 22 Notes: Introduction about model verbs (can and could).",
+    link: "https://youtu.be/S1tjY-px3wg?si=u5FZ63aP7hbOez-8",
+    questions: [
+      { question: "Choose the correct sentence:", options: ["I can to dance.", " I can dancing.", "I can dance.", "I dancing can."], correct: 2 },
+      { question: " What does 'could' express in this sentence: 'He could run fast when he was young'?", options: [" Present ability", "Past ability", "Future ability", "No ability"], correct: 1 },
+      { question: " Which is a polite request?", options: ["You can help me?", "Can you helping me?", "Could you help me?", "You help me could?"], correct: 2 }
+    ]
+  },
+  23: {
+    notes: "Day 23 Notes: Model verbs (will and would).",
+    link: "https://youtu.be/yifauqCd5QE?si=XhibAVJofpqRVtua",
+    questions: [
+      { question: "Choose the correct sentence:", options: ["I would to help.", "I would helping.", "I would help you.", "I help would."], correct: 2 },
+      { question: " What is the function of 'will' in this sentence: 'I will finish my homework soon'?", options: ["Request", "Past event", " Future action", "Imagination"], correct: 2 },
+      { question: "'Would you like some coffee?' is an example of:", options: ["Future plan", " Past event", "Polite offer ", "Command"], correct: 2 }
+    ]
+  },
+  24: {
+    notes: "Day 24 Notes: Model verbs (shall and should).",
+    link: "https://youtu.be/9-CADuP1K8I?si=ZLs80Q_f2lakMgfQ",
+    questions: [
+      { question: "Which sentence is a correct use of 'shall'?", options: ["Shall you went to school?", "Shall we start the class? ", "Shall going now?", "Shall to help me?"], correct: 1 },
+      { question: "'You should drink more water.' – What is the function of 'should'?", options: [" Promise", "Question", " Advice", "Past action"], correct: 2 },
+      { question: "Choose the correct sentence with 'should':", options: ["You should to sleep early.", "You should sleeping early.", "You should sleep early.", "You should slept early."], correct: 2 }
+    ]
+  },
+  25: {
+    notes: "Day 25 Notes: Model verbs (may and might and must).",
+    link: "https://youtu.be/gwYbACsvhNM?si=1zI1ZsN-3l3PpVGP",
+    questions: [
+      { question: "'She may come to the party.' – What does 'may' express here?", options: ["Order", "Possibility", " Request", "Habit"], correct: 1 },
+      { question: "Which sentence expresses a rule or obligation?", options: ["You might try this.", " I may come today.", "You must not smoke here", "It may be sunny."], correct: 2 },
+      { question: "Fill in the blank: 'You ___ obey traffic rules.'", options: ["may", "might", "could", "must"], correct: 3 }
+    ]
+  },
+  26: {
+    notes: "Day 26 Notes: Semi model verbs.",
+    link: "https://youtu.be/x-g74hVJpYM?si=rsa0v2YXkLhQXaso",
+    questions: [
+      { question: " Choose the correct sentence using 'need to':", options: ["I need study.", "I need studying.", "I need to study.", "I need study to."], correct: 2 },
+      { question: "'You have to wear a uniform.' – What does it mean?", options: ["Suggestion", "Request", "Obligation / Rule", "Wish"], correct: 2 },
+      { question: " Fill in the blank: 'We ___ follow the school rules.'", options: ["need", "have to", "can", "should"], correct: 1 }
+    ]
+  },
+  27: {
+    notes: "Day 27 Notes: Preposition of Place (in,on,at).",
+    link: "https://youtu.be/9-p-wSgtO8U?si=a-bbagNy_fCyuR9y",
+    questions: [
+      { question: "The books are ___ the bag.", options: ["on", "at", "in", "over"], correct: 2 },
+      { question: "The clock is ___ the wall.", options: ["on", "at", "in", "over"], correct: 0 },
+      { question: "She is waiting ___ the bus stop.", options: ["on", "at", "in", "over"], correct: 1 }
+    ]
+  },
+  28: {
+    notes: "Day 28 Notes: Have/Has is used to ask questions.",
+    link: "https://youtu.be/6kFJgQr_95w?si=mLuU-UwWRicfxFlp",
+    questions: [
+      { question: " ___ she a sister?", options: ["have", "has", "do", "did"], correct: 1 },
+      { question: "___ you a mobile phone?", options: ["has", "did", "have", "is"], correct: 2 },
+      { question: " What is the correct question form?", options: [" Has they a pencil?", "Have they a pencil? ", " Have she a pencil?", "Has we a pencil?"], correct: 1 }
+    ]
+  },
+  29: {
+    notes: "Day 29 Notes: 25 practice quiz in video .",
+    link: "https://youtu.be/0B2FHSCcT3c?si=W1zOwZSfGg5iAprU",
+    questions: [
+      { question: "I _____ tennis", options: ["play", "plays", "playing", "played"], correct: 0 },
+      { question: "I ____ him yesterday", options: ["meet", "met", "meeting", "meeted"], correct: 1 },
+      { question: "Correct article: She has ___ orange.", options: ["A", "An", "The", "None"], correct: 1 }
+    ]
+  },
+  30: {
+    notes: "Day 30 Notes: 50 practice quiz in video.",
+    link: "https://youtu.be/C-HUlYK4duY?si=XWt7JROEUKpVqtom",
+    questions: [
+      { question: "Which describes weather?", options: ["Rainy", "Running", "Talk", "Chair"], correct: 0 },
+      { question: "Fill the blank: It is ___ today.", options: ["rains", "raining", "rain", "rained"], correct: 1 },
+      { question: "Which is a question about weather?", options: ["What is the weather like?", "What you eat?", "Where are you?", "What is this?"], correct: 0 }
+    ]
+  }
+};
+const finalMCQs = [
+  { question: "I _____ tennis", options: ["play", "plays", "playing", "played"], correct: 0 },
+  { question: "He ____ eating", options: ["is", "am", "are", "were"], correct: 0 },
+  { question: "I ____ him yesterday", options: ["meet", "met", "meeting", "meeted"], correct: 1 },
+  { question: "Pick the noun:", options: ["Run", "Cat", "Blue", "Quickly"], correct: 1 },
+  { question: "Which is an adjective?", options: ["Beautiful", "Swim", "He", "Quickly"], correct: 0 },
+  { question: "Question tag: You're coming, ___?", options: ["Isn't it", "Are you", "Aren't you", "Won't you"], correct: 2 },
+  { question: "Plural of 'mouse'", options: ["Mouses", "Mouse", "Mices", "Mice"], correct: 3 },
+  { question: "Correct article: She has ___ orange.", options: ["A", "An", "The", "None"], correct: 1 },
+  { question: "Identify the verb:", options: ["Writes", "Letter", "He", "Pen"], correct: 0 },
+  { question: "Past tense: They play football.", options: ["Played", "Play", "Playing", "Plays"], correct: 0 },
+  { question: "Which is an interjection?", options: ["Wow!", "He", "Red", "Swim"], correct: 0 },
+  { question: "Opposite of 'cold'", options: ["Freezing", "Warm", "Ice", "Wet"], correct: 1 },
+  { question: "Which is a question word?", options: ["Because", "And", "When", "Also"], correct: 2 },
+  { question: "Complete sentence?", options: ["Went store", "The dog barked", "Tall", "Sad."], correct: 1 },
+  { question: "Which is a preposition?", options: ["Under", "Cat", "Blue", "Jump"], correct: 0 }
+];
+function tryShowAssessment() {
+  const userData = users[currentUser].progress;
+  if (userData.completedDays < 30) {
+    alert("You must complete all 30 days to unlock the Final Assessment.");
+  } else {
+    showPage('assessment');
+  }
+}
+function saveUsers() { localStorage.setItem("users", JSON.stringify(users)); }
+function switchToSignup() { document.getElementById("login").classList.remove("active"); document.getElementById("signup").classList.add("active"); }
+function switchToLogin() { document.getElementById("signup").classList.remove("active"); document.getElementById("login").classList.add("active"); }
+function login() {
+  const email = loginEmail.value;
+  const pass = loginPassword.value;
+  if (users[email] && users[email].password === pass) {
+    currentUser = email;
+    showGame();
+  } else alert("Invalid login");
+}
+function signup() {
+  const email = signupEmail.value;
+  const pass = signupPassword.value;
+  if (users[email]) return alert("User exists");
+  users[email] = { password: pass, progress: { completedDays: 0, finalAssessmentDone: false, awards: [] } };
+  saveUsers(); alert("Signup successful"); switchToLogin();
+}
+function logout() { currentUser = null; location.reload(); }
+function showGame() { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById("mainNav").style.display = 'flex'; showPage("home"); renderDays(); }
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'days') renderDays();
+  if (id === 'assessment') renderFinalAssessment();
+  if (id === 'awards') renderAwards();
+}
+function renderDays() {
+  const container = document.getElementById('dayButtons');
+  container.innerHTML = '';
+  const userData = users[currentUser].progress;
+  for (let i = 1; i <= 30; i++) {
+    const btn = document.createElement('button');
+    btn.innerText = `Day ${i}`;
+    btn.className = 'day-button';
+    if (i > userData.completedDays + 1) {
+      btn.classList.add('locked');
+      btn.disabled = true;
+    } else {
+      btn.onclick = () => loadDay(i);
+    }
+    container.appendChild(btn);
+  }
+}
+function loadDay(dayNumber) {
+  const content = document.getElementById('dayContent');
+  const data = dailyData[dayNumber];
+  content.innerHTML = `<h3>${data.notes}</h3>` +`<p><a href="${data.link}" target="_blank">Watch Video</a></p>` + data.questions.map((q, i) => `<div class='question-box'><p>${q.question}</p>${q.options.map((opt, j) => `<label><input type='radio' name='q${i}' value='${j}'> ${opt}</label>`).join('')}</div>`).join('') + `<button onclick='submitDay(${dayNumber})'>Submit</button>`;
+}
+function submitDay(day) {
+  const questions = dailyData[day].questions;
+  let correct = 0;
+  questions.forEach((q, i) => {
+    const selected = document.querySelector(`input[name='q${i}']:checked`);
+    if (selected && parseInt(selected.value) === q.correct) correct++;
+  });
+  if (correct === questions.length) {
+    alert("Correct! Day completed.");
+    const userData = users[currentUser].progress;
+    if (userData.completedDays < day) userData.completedDays = day;
+    userData.awards.push(`🏆 Completed Day ${day}`);
+    saveUsers(); renderDays();
+  } else alert("Some answers are incorrect. Try again.");
+}
+function renderFinalAssessment() {
+  const form = document.getElementById("finalAssessmentForm");
+  form.innerHTML = finalMCQs.map((q, i) => `<div class='question-box'><p>Q${i + 1}: ${q.question}</p>${q.options.map((opt, j) => `<label><input type='radio' name='final${i}' value='${j}'> ${opt}</label>`).join('')}</div>`).join('');
+}
+function submitFinalAssessment() {
+  let score = 0;
+  finalMCQs.forEach((q, i) => {
+    const selected = document.querySelector(`input[name='final${i}']:checked`);
+    if (selected && parseInt(selected.value) === q.correct) score++;
+  });
+  const result = document.getElementById("assessmentResult");
+  result.innerHTML = `<p>You scored ${score} out of ${finalMCQs.length}</p>`;
+  const userData = users[currentUser].progress;
+  if (score >= 12) {
+    userData.finalAssessmentDone = true;
+    userData.awards.push("🎖️ Passed Final Assessment");
+    saveUsers();
+    result.innerHTML += `<p>✅ Final Assessment Passed! 🎉 You can now download your certificate!</p>`;
+  } else {
+    result.innerHTML += `<p>❌ You need at least 12 correct to pass. Try again.</p>`;
+  }
+}
+function renderAwards() {
+  const awardList = document.getElementById("awardList");
+  const certSec = document.getElementById("certificateSection");
+  const userData = users[currentUser].progress;
+  awardList.innerHTML = userData.awards.map(a => `<div class='award'>${a}</div>`).join('');
+  if (userData.finalAssessmentDone) {
+    certSec.innerHTML = `<h3>🎓 Certificate of Completion</h3><input type="text" id="userName" placeholder="Enter your name" /><button onclick="downloadCertificate()">Download Certificate</button><div id="certificateCanvas"><h2>Certificate of Completion</h2><p>This certifies that <span id='certName'>[Your Name]</span></p><p>has successfully completed 30 Days of Spoken English Training</p><p>🏅 Awarded on ${new Date().toLocaleDateString()}</p></div>`;
+  }
+}
+function downloadCertificate() {
+  const name = document.getElementById("userName").value;
+  if (!name) return alert("Enter your name for the certificate.");
+  document.getElementById("certName").innerText = name;
+  html2canvas(document.getElementById("certificateCanvas")).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `${name}_Certificate.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  });
+}
+</script>
+</body>
+</html>
